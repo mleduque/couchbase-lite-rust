@@ -3,6 +3,7 @@ use couchbase_lite::{
     DocEnumeratorFlags, Document, IndexType,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::{json};
 use std::time::SystemTime;
 use tempfile::tempdir;
 
@@ -498,4 +499,68 @@ fn test_like_performance() {
         }
     }
     tmp_dir.close().expect("Can not close tmp_dir");
+}
+
+#[test]
+fn open_close() {
+    let _ = env_logger::try_init();
+    let tmp_dir = tempdir().expect("Can not create tmp directory");
+    println!("we create tempdir at {}", tmp_dir.path().display());
+    let db_path = tmp_dir.path().join("open_close.cblite2");
+    println!("using directory at {:?}", db_path);
+    for i in 0..10000 {
+        {
+            let _db = Database::open(&db_path, DatabaseConfig::default()).unwrap();
+        } // implicit close here
+
+        if i % 100 == 0 {
+            println!("{}", i);
+        }
+    }
+}
+
+#[test]
+fn open_delete() {
+    let _ = env_logger::try_init();
+    let tmp_dir = tempdir().expect("Can not create tmp directory");
+    println!("we create tempdir at {}", tmp_dir.path().display());
+    let base_path = tmp_dir.path().join("open_delete");
+    std::fs::create_dir_all(&base_path).unwrap();
+    let db_path = base_path.join("db.cblite2");
+    println!("using directory at {:?}", base_path);
+    for i in 0..10000 {
+        {
+            let _db = Database::open(&db_path, DatabaseConfig::default()).unwrap();
+        } // implicit close here
+        std::fs::remove_dir_all(&db_path).unwrap();
+
+        if i % 100 == 0 {
+            println!("{}", i);
+        }
+    }
+}
+
+#[test]
+fn open_save_delete() {
+    let _ = env_logger::try_init();
+    let tmp_dir = tempdir().expect("Can not create tmp directory");
+    println!("we create tempdir at {}", tmp_dir.path().display());
+    let db_path = tmp_dir.path().join("open_save_delete.cblite2");
+    println!("using directory at {:?}", db_path);
+    for i in 0..10000 {
+        {
+            let mut db = Database::open(&db_path, DatabaseConfig::default()).unwrap();
+            let mut doc = Document::new(&json!({
+                "prop": "value"
+            })).unwrap();
+            let mut trans = db.transaction().unwrap();
+            trans.save(&mut doc).unwrap();
+            trans.commit().unwrap();
+        } // implicit close here
+        std::fs::remove_dir_all(&db_path).unwrap();
+
+        if i % 100 == 0 {
+            println!("{}", i);
+        }
+    }
 }
