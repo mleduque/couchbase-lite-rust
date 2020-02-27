@@ -56,6 +56,7 @@ pub use crate::{
     document::Document,
     error::Error,
     query::Query,
+    query::Enumerator,
     replicator::ReplicatorState,
 };
 pub use couchbase_lite_core_sys as ffi;
