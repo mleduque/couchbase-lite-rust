@@ -194,9 +194,12 @@ impl Database {
         unsafe { c4db_getDocumentCount(self.inner.0.as_ptr()) }
     }
     /// Return existing document from database
-    pub fn get_existsing(&self, doc_id: &str) -> Result<Document> {
+    pub fn get_existing(&self, doc_id: &str) -> Result<Document> {
         self.internal_get(doc_id, true)
             .map(|x| Document::new_internal(x, doc_id))
+    }
+    pub fn get_existsing(&self, doc_id: &str) -> Result<Document> {
+        self.get_existing(doc_id)
     }
 
     /// Compiles a query from an expression given as JSON.
