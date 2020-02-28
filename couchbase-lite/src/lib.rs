@@ -201,6 +201,11 @@ impl Database {
     pub fn get_existsing(&self, doc_id: &str) -> Result<Document> {
         self.get_existing(doc_id)
     }
+    /// Return existing document from database or createa new one
+    pub fn get_or_create(&self, doc_id: &str) -> Result<Document> {
+        self.internal_get(doc_id, false)
+            .map(|x| Document::new_internal(x, doc_id))
+    }
 
     /// Compiles a query from an expression given as JSON.
     /// The expression is a predicate that describes which documents should be returned.
