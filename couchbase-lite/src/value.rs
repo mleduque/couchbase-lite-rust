@@ -1,14 +1,16 @@
 use crate::{
     error::Error,
     ffi::{
-        FLArray, FLArray_Count, FLArray_Get, FLArray_IsEmpty, FLValue, FLValueType,
+        FLArray, FLArray_Count, FLArray_Get, FLArray_IsEmpty,
+        FLValue, FLValueType,
         FLValue_AsArray, FLValue_AsBool, FLValue_AsDouble, FLValue_AsInt, FLValue_AsString,
         FLValue_AsUnsigned, FLValue_GetType, FLValue_IsDouble, FLValue_IsInteger,
-        FLValue_IsUnsigned,
+        FLValue_IsUnsigned, FLValue_ToJSON,
     },
-    fl_slice::fl_slice_to_str_unchecked,
+    fl_slice::{fl_slice_to_str_unchecked, FlSliceOwner},
     Result,
 };
+use serde::de::DeserializeOwned;
 use std::convert::TryFrom;
 
 #[derive(Debug, Clone, Copy)]
@@ -20,6 +22,7 @@ pub enum ValueRef<'a> {
     Double(f64),
     String(&'a str),
     Array(ValueRefArray),
+    Dict(ValueRefDict),
 }
 
 impl ValueRef<'_> {
@@ -58,7 +61,8 @@ impl<'a> Into<ValueRef<'a>> for FLValue {
                 ValueRef::String(s)
             }
             kFLArray => ValueRef::Array(ValueRefArray(unsafe { FLValue_AsArray(self) })),
-            kFLData | kFLDict => unimplemented!(),
+            kFLDict => ValueRef::Dict(ValueRefDict(self)),
+            kFLData => unimplemented!(),
         }
     }
 }
@@ -79,6 +83,24 @@ impl ValueRefArray {
     }
     pub fn get<'a>(&'a self, idx: u32) -> ValueRef<'a> {
         unsafe { self.get_raw(idx) }.into()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+#[repr(transparent)]
+pub struct ValueRefDict(FLValue);
+
+impl ValueRefDict {
+    pub fn decode<T>(self) -> Result<T> where T: DeserializeOwned {
+        let json_string = unsafe {
+            let json_slice: FlSliceOwner = FLValue_ToJSON(self.0).into();
+            let bytes = json_slice.as_bytes().to_owned();
+            match String::from_utf8(bytes) {
+                Ok(value) => value,
+                Err(_error) => return Err(Error::Utf8),
+            }
+        };
+        Ok(serde_json::from_str::<T>(&json_string)?)
     }
 }
 
