@@ -155,4 +155,8 @@ impl<'a> Enumerator<'a> {
         let value_ref = self.get_raw_checked(i)?;
         FromValueRef::column_result(value_ref)
     }
+
+    pub fn col_count(&self) -> u32 {
+        unsafe { FLArrayIterator_GetCount(&self.inner.as_ref().columns) }
+    }
 }
