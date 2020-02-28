@@ -58,6 +58,7 @@ pub use crate::{
     query::Query,
     query::Enumerator,
     replicator::ReplicatorState,
+    value::{ValueRef, ValueRefArray},
 };
 pub use couchbase_lite_core_sys as ffi;
 pub use fallible_streaming_iterator;
@@ -79,7 +80,6 @@ use crate::{
     observer::{DatabaseObserver, DbChange, DbChangesIter},
     replicator::Replicator,
     transaction::Transaction,
-    value::{ValueRef, ValueRefArray},
 };
 use fallible_streaming_iterator::FallibleStreamingIterator;
 use log::error;
