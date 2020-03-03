@@ -7,7 +7,7 @@ use crate::{
         FLValue_AsUnsigned, FLValue_GetType, FLValue_IsDouble, FLValue_IsInteger,
         FLValue_IsUnsigned, FLValue_ToJSON,
     },
-    fl_slice::{AsFlSlice, fl_slice_to_str_unchecked, FlSliceOwner},
+    fl_slice::{fl_slice_to_str_unchecked, FlSliceOwner},
     Result,
 };
 use serde::de::DeserializeOwned;
@@ -61,7 +61,7 @@ impl<'a> Into<ValueRef<'a>> for FLValue {
                 ValueRef::String(s)
             }
             kFLArray => ValueRef::Array(ValueRefArray(unsafe { FLValue_AsArray(self) })),
-            kFLDict => ValueRef::Dict(ValueRefDict(unsafe { self })),
+            kFLDict => ValueRef::Dict(ValueRefDict(self)),
             kFLData => unimplemented!(),
         }
     }
@@ -94,7 +94,11 @@ impl ValueRefDict {
     pub fn decode<T>(self) -> Result<T> where T: DeserializeOwned {
         let json_string = unsafe {
             let json_slice: FlSliceOwner = FLValue_ToJSON(self.0).into();
-            fl_slice_to_str_unchecked(json_slice.as_flslice())
+            let bytes = json_slice.as_bytes().to_owned();
+            match String::from_utf8(bytes) {
+                Ok(value) => value,
+                Err(_error) => return Err(Error::Utf8),
+            }
         };
         Ok(serde_json::from_str::<T>(&json_string)?)
     }
