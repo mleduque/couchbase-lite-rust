@@ -39,6 +39,13 @@ impl Document {
         self.unsaved_json5_body.is_none()
     }
 
+    pub fn is_deleted(&self) -> Result<bool> {
+        match self.inner {
+            None => Err(Error::LogicError("invalid document state".to_string())),
+            Some(ref inner) => Ok(inner.is_deleted()),
+        }
+    }
+
     pub(crate) fn encode(&self, db: &Database) -> Result<FlSliceOwner> {
         if let Some(json5) = self.unsaved_json5_body.as_ref() {
             let mut c4err = c4error_init();
