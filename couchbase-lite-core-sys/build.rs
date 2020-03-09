@@ -13,54 +13,25 @@ fn main() {
     // but not on Rust language
     let target_dir = target_directory(out_dir);
 
-    let dst = cmake::Config::new(Path::new("couchbase-lite-core"))
-        .define("DISABLE_LTO_BUILD", "True")
-        .build_target("LiteCore")
-        .build()
-        .join("build");
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+
+    if target_os != "windows" {
+        let dst = cmake::Config::new(Path::new("couchbase-lite-core"))
+            .define("DISABLE_LTO_BUILD", "True")
+            .build_target("LiteCore")
+            .build()
+            .join("build");
 
 
-    let lib_name = if cfg!(target_os = "windows") {
-        "LiteCore.dll"
-    } else if cfg!(target_os = "macos") || cfg!(target_os = "ios") {
-        "libLiteCore.dylib"
-    } else {
-        "libLiteCore.so"
-    };
-
-    if cfg!(target_os = "windows") {
-        let msvc_cmake_profile = match &getenv_unwrap("PROFILE")[..] {
-            "debug" => "Debug",
-            "release" | "bench" => "Release",
-            unknown => {
-                eprintln!(
-                    "Warning: unknown Rust profile={}; defaulting to a release build.",
-                    unknown
-                );
-                "Release"
-            }
+        let lib_name = if target_os != "windows" {
+            "LiteCore.dll"
+        } else if target_os == "macos" || target_os == "ios" {
+            "libLiteCore.dylib"
+        } else {
+            "libLiteCore.so"
         };
-        let dst = dst.join(msvc_cmake_profile);
-        if let Err(err) = fs::copy(dst.join(lib_name), target_dir.join(lib_name)) {
-            panic!(
-                "copy {} from '{}' to '{}' faied: {}",
-                lib_name,
-                dst.display(),
-                target_dir.display(),
-                err
-            );
-        }
-        let lib_lib_name = "LiteCore.lib";
-        if let Err(err) = fs::copy(dst.join(lib_lib_name), target_dir.join(lib_lib_name)) {
-            panic!(
-                "copy {} from '{}' to '{}' faied: {}",
-                lib_lib_name,
-                dst.display(),
-                target_dir.display(),
-                err
-            );
-        }
-    } else {
+
+
         if let Err(err) = fs::copy(dst.join(lib_name), target_dir.join(lib_name)) {
             panic!(
                 "copy {} from '{}' to '{}' faied: {}",
