@@ -7,14 +7,18 @@ use std::{
 };
 
 fn main() {
+    let out_dir = getenv_unwrap("OUT_DIR");
+    let out_dir = Path::new(&out_dir);
+    // so it is possible to use from project that uses Rust library,
+    // but not on Rust language
+    let target_dir = target_directory(out_dir);
+
     let dst = cmake::Config::new(Path::new("couchbase-lite-core"))
         .define("DISABLE_LTO_BUILD", "True")
         .build_target("LiteCore")
         .build()
         .join("build");
 
-    let out_dir = getenv_unwrap("OUT_DIR");
-    let out_dir = Path::new(&out_dir);
 
     let lib_name = if cfg!(target_os = "windows") {
         "LiteCore.dll"
@@ -23,9 +27,6 @@ fn main() {
     } else {
         "libLiteCore.so"
     };
-    // so it is possible to use from project that uses Rust library,
-    // but not on Rust language
-    let target_dir = target_directory(out_dir);
 
     if cfg!(target_os = "windows") {
         let msvc_cmake_profile = match &getenv_unwrap("PROFILE")[..] {
