@@ -23,7 +23,7 @@ fn main() {
             .join("build");
 
 
-        let lib_name = if target_os != "windows" {
+        let lib_name = if target_os == "windows" {
             "LiteCore.dll"
         } else if target_os == "macos" || target_os == "ios" {
             "libLiteCore.dylib"
