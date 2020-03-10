@@ -399,7 +399,7 @@ impl Database {
                     self.inner.0.as_ptr(),
                     index_name.as_flslice(),
                     expression_json.as_flslice(),
-                    index_type,
+                    index_type as u32,
                     ptr::null(),
                     &mut c4err,
                 )
