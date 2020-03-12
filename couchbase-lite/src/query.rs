@@ -2,15 +2,17 @@ use crate::{
     error::{c4error_init, Error},
     ffi::{
         c4query_free, c4query_new, c4query_new2, c4query_run, c4queryenum_free, c4queryenum_next,
+        c4query_columnCount, c4query_columnTitle,
         kC4DefaultQueryOptions, C4Query, C4QueryEnumerator, FLArrayIterator_GetCount,
-        FLArrayIterator_GetValueAt, kC4N1QLQuery, c4query_setParameters
+        FLArrayIterator_GetValueAt, kC4N1QLQuery, c4query_setParameters,
     },
-    fl_slice::{fl_slice_empty, AsFlSlice},
+    fl_slice::{fl_slice_empty, AsFlSlice, fl_slice_to_str_unchecked},
     value::{FromValueRef, ValueRef},
     Database, Result,
 };
 use fallible_streaming_iterator::FallibleStreamingIterator;
 use serde::Serialize;
+use std::convert::TryFrom;
 use std::ptr::NonNull;
 
 pub struct Query<'db> {
@@ -89,6 +91,30 @@ impl Query<'_> {
                 inner,
             })
             .ok_or_else(|| c4err.into())
+    }
+
+    pub fn column_names(&self) -> Result<Vec<String>> {
+        let col_count = unsafe {
+            c4query_columnCount(self.inner.as_ptr())
+        };
+        let column_count = match usize::try_from(col_count) {
+            Ok(value) => value,
+            Err(_) => return Err(Error::LogicError("column count doesn't fit".to_string())),
+        };
+        let mut names = Vec::with_capacity(column_count);
+        for col_index in 0..col_count {
+            let title = unsafe {
+                c4query_columnTitle(
+                    self.inner.as_ptr(),
+                    col_index
+                )
+            };
+            let name = unsafe {
+                fl_slice_to_str_unchecked(title).to_owned()
+            };
+            names.push(name);
+        }
+        Ok(names)
     }
 }
 
