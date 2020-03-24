@@ -12,25 +12,39 @@ fn main() {
 
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let cross_to_windows = target_os == "windows" && !cfg!(target_os = "windows");
+    let cross_to_android = target_os == "android";
 
     // so it is possible to use from project that uses Rust library,
     // but not on Rust language
     let target_dir = target_directory(out_dir);
 
-
     if !cross_to_windows {
         let lib_name = if cfg!(target_os = "windows") {
             "LiteCore.dll"
-        } else if cfg!(target_os = "macos") || cfg!(target_os = "ios") {
+        } else if !cross_to_android && (cfg!(target_os = "macos") || cfg!(target_os = "ios")) {
             "libLiteCore.dylib"
         } else {
             "libLiteCore.so"
         };
-        let dst = cmake::Config::new(Path::new("couchbase-lite-core"))
-            .define("DISABLE_LTO_BUILD", "True")
-            .build_target("LiteCore")
-            .build()
-            .join("build");
+
+        let mut cmake_config = cmake::Config::new(Path::new("couchbase-lite-core"));
+
+        let dst = if cross_to_android {
+            cmake_config.define("ANDROID_ABI", env::var("ANDROID_ABI").unwrap())
+                .define("ANDROID_NDK", env::var("NDK_HOME").unwrap())
+                .define("CMAKE_BUILD_TYPE", "MinSizeRel")
+                .define("ANDROID_NATIVE_API_LEVEL", env::var("ANDROID_NATIVE_API_LEVEL").unwrap())
+                .define("ANDROID_TOOLCHAIN", "clang")
+                .define("CMAKE_TOOLCHAIN_FILE", format!("{}/build/cmake/android.toolchain.cmake", env::var("NDK_HOME").unwrap()))
+                .define("DISABLE_LTO_BUILD", "True")
+                .build_target("LiteCore")
+                .build()
+                .join("build")
+        } else {
+            cmake_config.define("DISABLE_LTO_BUILD", "True")
+                .build_target("LiteCore").build()
+                .join("build")
+        };
 
         if cfg!(target_os = "windows") {
             let msvc_cmake_profile = match &getenv_unwrap("PROFILE")[..] {
