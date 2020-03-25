@@ -1,6 +1,6 @@
 use couchbase_lite::{
     fallible_streaming_iterator::FallibleStreamingIterator, use_c4_civet_web_socket_factory,
-    Database, DatabaseConfig, Document, ReplicatorState,
+    Database, DatabaseConfig, Document, ReplicatorState, RevisionFlags,
 };
 use log::{error, trace};
 use serde::{Deserialize, Serialize};
@@ -49,6 +49,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         _ => {}
                     }
                 },
+                None::<Box<dyn FnMut(&str, &str, RevisionFlags, &str) -> String + Send>>,
+                None::<Box<dyn FnMut(&str, &str, RevisionFlags, &str) -> String + Send>>,
             )
             .expect("replicator start failed");
         } else {
