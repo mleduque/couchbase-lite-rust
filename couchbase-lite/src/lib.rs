@@ -55,9 +55,10 @@ pub use crate::{
     doc_enumerator::{DocEnumerator, DocEnumeratorFlags},
     document::Document,
     error::Error,
-    query::Query,
+    fl_slice::{flslice_as_str, AsFlSlice},
     query::Enumerator,
-    replicator::ReplicatorState,
+    query::Query,
+    replicator::{ReplicatorState, RevisionFlags},
     value::{ValueRef, ValueRefArray},
 };
 pub use couchbase_lite_core_sys as ffi;
@@ -71,11 +72,11 @@ use crate::{
         c4socket_registerFactory, kC4ArrayIndex, kC4DB_Create, kC4EncryptionNone, kC4FullTextIndex,
         kC4PredictiveIndex, kC4RevisionTrees, kC4SQLiteStorageEngine, kC4ValueIndex,
         C4CivetWebSocketFactory, C4Database, C4DatabaseConfig, C4DatabaseFlags,
-        C4DocumentVersioning, C4EncryptionAlgorithm, C4EncryptionKey, C4IndexOptions, C4String,
-        FLTrust_kFLTrusted, FLValue, FLValueType, FLValue_AsString, FLValue_FromData,
-        FLValue_GetType,
+        C4DocumentVersioning, C4EncryptionAlgorithm, C4EncryptionKey, C4IndexOptions,
+        C4RevisionFlags, C4String, FLTrust_kFLTrusted, FLValue, FLValueType, FLValue_AsString,
+        FLValue_FromData, FLValue_GetType,
     },
-    fl_slice::{fl_slice_to_str_unchecked, AsFlSlice, FlSliceOwner},
+    fl_slice::{fl_slice_to_str_unchecked, FlSliceOwner},
     log_reroute::DB_LOGGER,
     observer::{DatabaseObserver, DbChange, DbChangesIter},
     replicator::Replicator,
@@ -272,27 +273,32 @@ impl Database {
     }
 
     /// starts database replication
-    pub fn start_replicator<F>(
+    pub fn start_replicator<F, G, H>(
         &mut self,
         url: &str,
         token: Option<&str>,
         mut repl_status_changed: F,
+        before_push: Option<G>,
+        after_pull: Option<H>,
     ) -> Result<()>
     where
         F: FnMut(ReplicatorState) + Send + 'static,
+        G: FnMut(&str, &str, C4RevisionFlags, &str) -> String + Send + 'static,
+        H: FnMut(&str, &str, C4RevisionFlags, &str) -> String + Send + 'static,
     {
-        self.db_replicator =
-            Some(Replicator::new(
-                self,
-                url,
-                token,
-                move |status| match ReplicatorState::try_from(status) {
-                    Ok(state) => repl_status_changed(state),
-                    Err(err) => {
-                        error!("replicator status change: invalid status {}", err);
-                    }
-                },
-            )?);
+        self.db_replicator = Some(Replicator::new(
+            self,
+            url,
+            token,
+            move |status| match ReplicatorState::try_from(status) {
+                Ok(state) => repl_status_changed(state),
+                Err(err) => {
+                    error!("replicator status change: invalid status {}", err);
+                }
+            },
+            before_push,
+            after_pull,
+        )?);
         self.replicator_params = Some(ReplicatorParams {
             url: url.into(),
             token: token.map(str::to_string),

@@ -1,7 +1,7 @@
 use crate::ffi::{FLSlice, FLSliceResult, FLSliceResult_Release};
 use std::{borrow::Cow, os::raw::c_void, ptr, slice, str};
 
-pub(crate) trait AsFlSlice {
+pub trait AsFlSlice {
     fn as_flslice(&self) -> FLSlice;
 }
 
@@ -89,6 +89,11 @@ impl AsFlSlice for FLSliceResult {
             size: self.size,
         }
     }
+}
+
+pub unsafe fn flslice_as_str(flslice: &FLSlice) -> &str {
+    let slice = std::slice::from_raw_parts(flslice.buf as *const u8, flslice.size);
+    str::from_utf8_unchecked(slice)
 }
 
 #[inline]
