@@ -173,7 +173,11 @@ impl Replicator {
                     error!("Replicator::call_after_pull catch panic aborting");
                     panic!();
                 }
-                Ok(result) => result.as_str().as_flslice(),
+                Ok(result) => {
+                    println!("after_pull hook returned {:?}", result);
+                    let copy = FLSlice_Copy(result.as_str().as_flslice());
+                    copy.as_flslice()
+                }
             }
         }
 
