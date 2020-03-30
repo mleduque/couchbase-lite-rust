@@ -12,7 +12,7 @@ use crate::{
     fl_slice::{fl_slice_empty, flslice_as_str, AsFlSlice, FlSliceOwner},
     Database, Result,
 };
-use log::{error, info};
+use log::{debug, error, info};
 use std::{
     convert::TryFrom, mem, os::raw::c_void, panic::catch_unwind, process::abort, ptr, ptr::NonNull,
 };
@@ -21,13 +21,6 @@ struct CallContext {
     state_change_ctx: NonNull<c_void>,
     before_push_ctx: *mut c_void,
     after_pull_ctx: *mut c_void,
-}
-
-impl Drop for CallContext {
-    fn drop(&mut self) {
-        println!("CallContext.drop()");
-        // fields are dropped implicitely (I think)
-    }
 }
 
 pub(crate) struct Replicator {
@@ -45,7 +38,6 @@ unsafe impl Send for Replicator {}
 
 impl Drop for Replicator {
     fn drop(&mut self) {
-        println!("Replicator.drop()");
         unsafe {
             c4repl_free(self.inner.as_ptr());
             (self.free_callback_f)(self.callback_context.as_ptr());
@@ -108,7 +100,7 @@ impl Replicator {
             G: FnMut(&str, &str, C4RevisionFlags, &str) -> String + Send,
         {
             let call_result = catch_unwind(|| {
-                println!("call_before_push");
+                debug!("call_before_push");
                 let call_context = ctx as *mut CallContext;
                 let call_context = match call_context.as_ref() {
                     None => panic!("Internal error - null callback context"),
@@ -127,13 +119,14 @@ impl Replicator {
                     (*boxed_before_push_hook)(rust_id, rust_rev, flags, body_string);
                 call_result
             });
+            #[allow(clippy::match_wild_err_arm)]
             match call_result {
-                Err(_) => {
+                Err(_error) => {
                     error!("Replicator::call_before_push catch panic aborting");
                     panic!();
                 }
                 Ok(result) => {
-                    println!("before_push hook returned {:?}", result);
+                    debug!("before_push hook returned {:?}", result);
                     let copy = FLSlice_Copy(result.as_str().as_flslice());
                     copy.as_flslice()
                 }
@@ -168,13 +161,14 @@ impl Replicator {
                     (*boxed_after_pull_hook)(rust_id, rust_rev, flags, body_string);
                 call_result
             });
+            #[allow(clippy::match_wild_err_arm)]
             match call_result {
-                Err(_) => {
+                Err(_error) => {
                     error!("Replicator::call_after_pull catch panic aborting");
                     panic!();
                 }
                 Ok(result) => {
-                    println!("after_pull hook returned {:?}", result);
+                    debug!("after_pull hook returned {:?}", result);
                     let copy = FLSlice_Copy(result.as_str().as_flslice());
                     copy.as_flslice()
                 }
@@ -187,7 +181,7 @@ impl Replicator {
         let boxed_state_change: *mut F = Box::into_raw(Box::new(state_changed_callback));
         let boxed_before_push: *mut G =
             before_push.map_or_else(ptr::null_mut, |f| Box::into_raw(Box::new(f)));
-        println!("boxed_before_push={:?}", boxed_before_push);
+        debug!("boxed_before_push={:?}", boxed_before_push);
         let boxed_after_pull: *mut H =
             after_pull.map_or_else(ptr::null_mut, |f| Box::into_raw(Box::new(f)));
         let callback_context = CallContext {
