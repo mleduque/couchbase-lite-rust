@@ -10,3 +10,6 @@ edition = "2018"
 cmake = "0.1.42"
 bindgen = "0.52.0"
 cc = "1.0.48"
+
+[features]
+static = []
