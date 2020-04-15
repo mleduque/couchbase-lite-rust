@@ -4,7 +4,8 @@ version = "0.1.0"
 authors = ["Evgeniy A. Dushistov <dushistov@mail.ru>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+crate-type=["rlib", "staticlib"]
 
 [dependencies]
 couchbase-lite-core-sys = { path = "../couchbase-lite-core-sys" }
@@ -20,3 +21,6 @@ log = "0.4.8"
 [dev-dependencies]
 tempfile = "3.0"
 env_logger = "0.7"
+
+[features]
+sys-static = ["couchbase-lite-core-sys/static"]
