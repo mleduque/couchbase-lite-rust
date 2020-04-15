@@ -17,14 +17,47 @@ fn main() {
     // but not on Rust language
     let target_dir = target_directory(out_dir);
 
-
+    let mut static_libs = vec![];
     if !cross_to_windows {
-        let lib_name = if cfg!(target_os = "windows") {
-            "LiteCore.dll"
+        let lib_names = if cfg!(target_os = "windows") {
+            static_libs.push("LiteCore");
+            vec![("", "LiteCore.dll"), ("", "LiteCore.lib")]
         } else if cfg!(target_os = "macos") || cfg!(target_os = "ios") {
-            "libLiteCore.dylib"
+            static_libs.push("LiteCoreStatic");
+            static_libs.push("Support");
+            static_libs.push("BLIPStatic");
+            static_libs.push("FleeceStatic");
+            static_libs.push("mbedcrypto");
+            static_libs.push("SQLite3_UnicodeSN");
+            static_libs.push("CivetWeb");
+            vec![
+                ("", "libLiteCore.so"),
+                ("", "libLiteCoreStatic.a"),
+                ("", "libSupport.a"),
+                ("vendor/BLIP-Cpp", "libBLIPStatic.a"),
+                ("vendor/fleece", "libFleeceStatic.a"),
+                ("vendor/mbedtls/library", "libmbedcrypto.a"),
+                ("vendor/sqlite3-unicodesn", "libSQLite3_UnicodeSN.a"),
+                ("REST", "libCivetWeb.a"),
+            ]
         } else {
-            "libLiteCore.so"
+            static_libs.push("LiteCoreStatic");
+            static_libs.push("Support");
+            static_libs.push("BLIPStatic");
+            static_libs.push("FleeceStatic");
+            static_libs.push("mbedcrypto");
+            static_libs.push("SQLite3_UnicodeSN");
+            static_libs.push("CivetWeb");
+            vec![
+                ("", "libLiteCore.so"),
+                ("", "libLiteCoreStatic.a"),
+                ("", "libSupport.a"),
+                ("vendor/BLIP-Cpp", "libBLIPStatic.a"),
+                ("vendor/fleece", "libFleeceStatic.a"),
+                ("vendor/mbedtls/library", "libmbedcrypto.a"),
+                ("vendor/sqlite3-unicodesn", "libSQLite3_UnicodeSN.a"),
+                ("REST", "libCivetWeb.a"),
+            ]
         };
         let dst = cmake::Config::new(Path::new("couchbase-lite-core"))
             .define("DISABLE_LTO_BUILD", "True")
@@ -45,39 +78,47 @@ fn main() {
                 }
             };
             let dst = dst.join(msvc_cmake_profile);
-            if let Err(err) = fs::copy(dst.join(lib_name), target_dir.join(lib_name)) {
-                panic!(
-                    "copy {} from '{}' to '{}' faied: {}",
-                    lib_name,
-                    dst.display(),
-                    target_dir.display(),
-                    err
-                );
-            }
-            let lib_lib_name = "LiteCore.lib";
-            if let Err(err) = fs::copy(dst.join(lib_lib_name), target_dir.join(lib_lib_name)) {
-                panic!(
-                    "copy {} from '{}' to '{}' faied: {}",
-                    lib_lib_name,
-                    dst.display(),
-                    target_dir.display(),
-                    err
-                );
+            for (lib_path, lib_name) in lib_names {
+                let lib_path = dst.join(lib_path);
+                if let Err(err) = fs::copy(lib_path.join(lib_name), target_dir.join(lib_name)) {
+                    panic!(
+                        "copy {} from '{}' to '{}' faied: {}",
+                        lib_name,
+                        lib_path.display(),
+                        target_dir.display(),
+                        err
+                    );
+                }
             }
         } else {
-            if let Err(err) = fs::copy(dst.join(lib_name), target_dir.join(lib_name)) {
-                panic!(
-                    "copy {} from '{}' to '{}' faied: {}",
-                    lib_name,
-                    dst.display(),
-                    target_dir.display(),
-                    err
-                );
+            for (lib_path, lib_name) in lib_names {
+                let lib_path = dst.join(lib_path);
+                if let Err(err) = fs::copy(lib_path.join(lib_name), target_dir.join(lib_name)) {
+                    panic!(
+                        "copy {} from '{}' to '{}' faied: {}",
+                        lib_name,
+                        lib_path.display(),
+                        target_dir.display(),
+                        err
+                    );
+                }
             }
         }
     }
     println!("cargo:rustc-link-search=native={}", target_dir.display());
-    println!("cargo:rustc-link-lib=dylib=LiteCore");
+    if cfg!(feature = "static") {
+        println!("cargo:warning=static linking");
+        for lib in static_libs {
+            println!("cargo:rustc-link-lib=static={}", lib);
+        }
+        println!("cargo:rustc-link-lib=dylib=stdc++");
+        println!("cargo:rustc-link-lib=dylib=icuuc");
+        println!("cargo:rustc-link-lib=dylib=icui18n");
+        println!("cargo:rustc-link-lib=dylib=z");
+    } else {
+        println!("cargo:warning=dynamic linking");
+        println!("cargo:rustc-link-lib=dylib=LiteCore");
+    }
 
     let mut includes = vec![
         Path::new("couchbase-lite-core").join("C").join("include"),
